@@ -15,37 +15,55 @@
  * Ответ будет приходить в поле {result}
  */
 import Api from '../tools/api';
+import { pipe, __, allPass, then, tap, ifElse, modulo, length, gte, test } from 'ramda';
 
 const api = new Api();
 
-/**
- * Я – пример, удали меня
- */
-const wait = time => new Promise(resolve => {
-    setTimeout(resolve, time);
-})
+const less10 = (str) => gte(9, length(str));
 
-const processSequence = ({value, writeLog, handleSuccess, handleError}) => {
-    /**
-     * Я – пример, удали меня
-     */
-    writeLog(value);
+const more2 = (str) => gte(length(str), 2);
 
-    api.get('https://api.tech/numbers/base', {from: 2, to: 10, number: '01011010101'}).then(({result}) => {
-        writeLog(result);
-    });
+const isPositiveNumber = (str) => test(/^[0-9]+\.?[0-9]+$/, str);
 
-    wait(2500).then(() => {
-        writeLog('SecondLog')
+const convertStrToInt = (str) => Math.round(parseFloat(str));
 
-        return wait(1500);
-    }).then(() => {
-        writeLog('ThirdLog');
+const validator = (str) => allPass([less10, more2, isPositiveNumber])(str);
 
-        return wait(400);
-    }).then(() => {
-        handleSuccess('Done');
-    });
+const getConvertedNumber = async (number) => api.get('https://api.tech/numbers/base', { from: 10, to: 2, number }).then(({ result }) => result);
+
+const getRandomAnimal = async (id) => api.get(`https://animals.tech/${id}`, {}).then(({ result }) => result);
+
+const getSqrNum = (number) => Math.pow(number, 2);
+
+const processSequence = ({ value, writeLog, handleSuccess, handleError }) => {
+    pipe(
+        tap(writeLog),
+        ifElse(
+            validator,
+            pipe(
+                convertStrToInt,
+                tap(writeLog),
+                getConvertedNumber,
+                then(
+                    pipe(
+                        tap(writeLog),
+                        length,
+                        tap(writeLog),
+                        getSqrNum,
+                        tap(writeLog),
+                        modulo(__, 3),
+                        tap(writeLog),
+                        getRandomAnimal,
+                    )
+                ),
+                then(
+                    handleSuccess
+                )
+            ),
+            () => handleError('ValidationError'),
+        )
+
+    )(value).catch((error) => { handleError(error); });
 }
 
 export default processSequence;
